@@ -1,0 +1,5 @@
+Equipo:       ignacio-VirtualBox
+Kernel:       7.0.0-28-generic
+Cargados:     78
+Disponibles:  6903
+No cargados:  6825
