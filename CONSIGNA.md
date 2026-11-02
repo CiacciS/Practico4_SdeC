@@ -75,6 +75,7 @@ justificadas con lo observado.
 | P11 | Nota de Ars Technica sobre Secure Boot | Parte 8 |
 | D1 | checkinstall, paquete en dos máquinas, seguridad del kernel | Parte 10 (`desafio1/hola/`) |
 | D2 | Funciones de programa y módulo, espacios de memoria, `/dev` | Parte 9 |
+| RPi | Pedido en clase: compilar el módulo para la Raspberry Pi (ARM), en forma nativa y con un compilador cruzado x86 → ARM, buscando los headers de la versión exacta del kernel | Parte 11 |
 
 ## Plan por partes
 
@@ -91,6 +92,7 @@ justificadas con lo observado.
 | 8 | Nota de Secure Boot / SBAT | Qué protege Secure Boot y qué se pierde al desactivarlo |
 | 9 | Desafío #2: `/proc/kallsyms`, mapas de memoria, `/dev` | Símbolos exportados, mitades del espacio virtual, números mayor/menor |
 | 10 | Desafío #1: checkinstall y seguridad | Paquete `.deb` instalable en otra máquina; defensas contra rootkits |
+| 11 | Raspberry Pi: compilación nativa y cruzada | Un `.ko` se compila para una arquitectura y una versión exacta del kernel (`vermagic`, `Module.symvers`) |
 
 ## Decisiones tomadas
 

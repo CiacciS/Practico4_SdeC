@@ -1156,6 +1156,231 @@ sudo lynis audit system
 
 ---
 
+## Parte 11 — Raspberry Pi: compilación nativa y cruzada
+
+La cátedra pidió llevar el módulo a una **Raspberry Pi 4**, que tiene un procesador ARM
+de 64 bits (**aarch64**) en lugar de x86-64. Se hace de dos formas:
+
+| | Nativa (11.1) | Cruzada (11.2 a 11.7) |
+|---|---|---|
+| Dónde se compila | En la propia Raspberry | En la VM x86-64 |
+| Compilador | `gcc` de la Raspberry (ARM → ARM) | `aarch64-linux-gnu-gcc` (x86 → ARM) |
+| Headers del kernel | Los del paquete de la Raspberry (`/lib/modules/$(uname -r)/build`) | El fuente del kernel de la Raspberry, de la **versión exacta**, preparado en la VM |
+| Dónde se carga | En la Raspberry | Se copia el `.ko` a la Raspberry y se carga ahí |
+
+### 11.1 Compilación nativa (ya hecha)
+
+Con Raspberry Pi OS Lite (64-bit) grabado con Raspberry Pi Imager y acceso por SSH, se
+instalaron `build-essential`, `git` y `linux-headers-$(uname -r)` en la Raspberry, se
+clonó el repo y se compilaron y cargaron `mimodulo` y `equipo` con los mismos comandos de
+las Partes 2 y 4.
+
+📸 **`P11-01-rpi-entorno`**, **`P11-02-rpi-mimodulo`** y **`P11-03-rpi-equipo`**
+(resultados en `PROCEDIMIENTO.md`).
+
+### 11.2 Por qué compilar en cruzado
+
+Un **compilador cruzado** corre en una arquitectura (el *host*, acá la VM x86-64) y
+genera código para otra (el *target*, la Raspberry aarch64). Es la forma normal de
+trabajar en sistemas embebidos:
+
+- El target suele ser **lento o chico**: la Raspberry tiene 1 GB de RAM y una microSD.
+  Compilar ahí un kernel entero tardaría horas; en una PC, minutos.
+- Muchos dispositivos **no tienen compilador ni headers** instalados (routers, placas
+  industriales, celulares).
+- Se compila una vez y se distribuye el binario a muchos equipos iguales.
+
+El nombre del compilador dice para qué genera código: `aarch64-linux-gnu-gcc` =
+arquitectura `aarch64`, sistema `linux`, ABI `gnu`. Al kbuild del kernel se le indica con
+dos variables:
+
+```bash
+ARCH=arm64                          # arquitectura del kernel destino (arm64 = aarch64)
+CROSS_COMPILE=aarch64-linux-gnu-    # prefijo de gcc, ld, objcopy... del toolchain cruzado
+```
+
+### 11.3 Qué tiene que coincidir con el kernel de la Raspberry
+
+Un módulo se engancha a **un kernel en particular**. Para que la Raspberry lo acepte,
+hay que compilarlo contra un árbol del kernel igual al que corre:
+
+| Qué | Por qué | De dónde sale |
+|---|---|---|
+| **Arquitectura** | Un `.ko` de x86 no se puede ejecutar en ARM | `ARCH=arm64` + compilador `aarch64-linux-gnu-` |
+| **Versión exacta** (`6.18.50+rpt-rpi-v8`) | Va en la `vermagic`; si no coincide, `insmod` da `Invalid module format` | `uname -r` en la Raspberry; el fuente de esa versión en GitHub |
+| **Configuración** (`.config`) | Define opciones (SMP, PREEMPT, MODVERSIONS) y el tamaño de las estructuras del kernel | `.config` de los headers de la Raspberry |
+| **Versiones de los símbolos** (`Module.symvers`) | Con `CONFIG_MODVERSIONS`, cada símbolo (`_printk`, `param_ops_charp`...) lleva un CRC; si no coincide: `disagrees about version of symbol` | `Module.symvers` de los headers de la Raspberry |
+
+Por eso no alcanza con `apt install linux-headers-...` en la VM: esos son los headers de
+Ubuntu x86. Hay que **buscar el fuente del kernel de Raspberry Pi de la misma versión**.
+
+**Cómo se busca la versión.** En la Raspberry:
+
+```bash
+uname -r      # 6.18.50+rpt-rpi-v8   → kernel 6.18.50, variante rpi-v8 (64 bits)
+uname -v      # #1 SMP PREEMPT Debian 1:6.18.50-1+rpt1 (2026-09-11)
+```
+
+El kernel de Raspberry Pi OS sale del repo
+[raspberrypi/linux](https://github.com/raspberrypi/linux), rama `rpi-6.18.y`. Esa rama
+avanza (hoy está en 6.18.60), así que se busca en su historia el último commit en el que
+el `Makefile` dice `SUBLEVEL = 50`:
+
+```bash
+git clone --branch rpi-6.18.y --shallow-since=2026-08-15 https://github.com/raspberrypi/linux
+cd linux
+for c in $(git rev-list --first-parent HEAD); do
+    git show $c:Makefile | grep -q '^SUBLEVEL = 50$' && { git log -1 --format='%H %ad %s' $c; break; }
+done
+```
+
+Resultado (ya buscado, no hace falta repetirlo): `0c0042cbe1711760cf8e8c213db3c05fca16b81e`, del 11/09/2026, el mismo día que
+dice `uname -v`. En 11.4 se baja directamente ese commit.
+
+### 11.4 En la Raspberry: la versión y los archivos del kernel
+
+```bash
+uname -r
+uname -v
+uname -m
+ls -l /lib/modules/$(uname -r)/build/.config /lib/modules/$(uname -r)/build/Module.symvers
+hostname -I
+```
+
+`hostname -I` da la IP de la Raspberry (por ejemplo `192.168.0.233`), que se usa para
+copiar archivos desde la VM.
+
+📸 **`P11-04-rpi-version`** — los cinco comandos.
+
+> Si no está el `.config`: `zcat /proc/config.gz > ~/config-rpi` (o
+> `sudo modprobe configs` antes) y se copia ese archivo en su lugar.
+
+### 11.5 En la VM: toolchain cruzado y fuente del kernel
+
+```bash
+sudo apt update
+sudo apt install -y gcc-aarch64-linux-gnu make bc bison flex libssl-dev libelf-dev git
+df -h ~                               # hacen falta unos 4 GB libres
+```
+
+Bajar **solo** el commit de la versión 6.18.50 (unos 300 MB de descarga, 2 GB en disco):
+
+```bash
+mkdir ~/rpi-linux && cd ~/rpi-linux
+git init
+git remote add origin https://github.com/raspberrypi/linux
+git fetch --depth 1 origin 0c0042cbe1711760cf8e8c213db3c05fca16b81e
+git checkout FETCH_HEAD
+```
+
+Traer de la Raspberry la configuración y las versiones de los símbolos (cambiar la IP
+por la de 11.4):
+
+```bash
+scp santiago@192.168.0.233:/lib/modules/6.18.50+rpt-rpi-v8/build/.config ~/rpi-linux/.config
+scp santiago@192.168.0.233:/lib/modules/6.18.50+rpt-rpi-v8/build/Module.symvers ~/rpi-linux/Module.symvers
+```
+
+Verificación:
+
+```bash
+aarch64-linux-gnu-gcc --version | head -1
+head -4 ~/rpi-linux/Makefile
+ls -l ~/rpi-linux/.config ~/rpi-linux/Module.symvers
+```
+
+📸 **`P11-05-toolchain-fuente`** — la versión del compilador cruzado, `SUBLEVEL = 50` y
+los dos archivos traídos de la Raspberry.
+
+### 11.6 Preparar el árbol del kernel para compilar módulos
+
+```bash
+cd ~/rpi-linux
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LOCALVERSION= -j$(nproc) modules_prepare
+cat include/config/kernel.release
+```
+
+- `olddefconfig` adapta el `.config` de la Raspberry a este compilador sin hacer
+  preguntas.
+- `modules_prepare` no compila el kernel: genera solo lo que hace falta para compilar
+  módulos externos (headers generados como `utsrelease.h` y las herramientas `modpost` y
+  `fixdep`, compiladas para x86 porque corren en la VM). Tarda menos de un minuto.
+- `LOCALVERSION=` (vacío) evita que kbuild le agregue un `+` a la versión porque el
+  fuente no es un release oficial.
+
+`kernel.release` tiene que dar **exactamente** lo mismo que `uname -r` en la Raspberry:
+`6.18.50+rpt-rpi-v8`. Si da otra cosa (por ejemplo `6.18.50` a secas), se fija el sufijo
+y se repite:
+
+```bash
+./scripts/config --set-str LOCALVERSION "+rpt-rpi-v8"
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LOCALVERSION= -j$(nproc) modules_prepare
+cat include/config/kernel.release
+```
+
+📸 **`P11-06-modules-prepare`** — el final de `modules_prepare` y `kernel.release`.
+
+### 11.7 Compilar en cruzado, probar en la VM y cargar en la Raspberry
+
+Se trabaja en una copia para no mezclar el `.ko` de ARM con el de x86:
+
+```bash
+cp -r ~/practico-4/part1/equipo ~/equipo-arm
+cd ~/equipo-arm
+rm -f *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order
+make KDIR=~/rpi-linux ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LOCALVERSION=
+file equipo.ko
+modinfo equipo.ko | grep -E 'vermagic|parm'
+file ~/practico-4/part1/equipo/equipo.ko
+sudo insmod equipo.ko
+```
+
+- Es el mismo `Makefile` de la Parte 4: solo cambia `KDIR` (el árbol del kernel de la
+  Raspberry en vez de los headers de Ubuntu) y se agregan `ARCH` y `CROSS_COMPILE`.
+- `file` muestra **`ARM aarch64`** para el nuevo y **`x86-64`** para el de la Parte 4.
+- La `vermagic` tiene que ser `6.18.50+rpt-rpi-v8 SMP preempt mod_unload modversions
+  aarch64`, idéntica a la del módulo compilado en la Raspberry (11.1).
+- El `insmod` en la VM **tiene que fallar** con `Invalid module format`: el kernel x86
+  rechaza un módulo de otra arquitectura y de otra versión.
+
+📸 **`P11-07-cross-compilacion`** — desde el `make` hasta el `insmod` fallido.
+
+Copiarlo a la Raspberry:
+
+```bash
+scp equipo.ko santiago@192.168.0.233:~/equipo-cross.ko
+```
+
+En la Raspberry (por SSH):
+
+```bash
+sudo insmod ~/equipo-cross.ko
+sudo dmesg | tail -2
+cat /sys/module/equipo/parameters/grupo
+sudo rmmod equipo
+sudo dmesg | tail -1
+```
+
+Tiene que mostrar `equipo: modulo cargado en el equipo 'tp4-santi' (kernel
+6.18.50+rpt-rpi-v8)`: el módulo compilado en una PC x86 corre en la Raspberry.
+
+📸 **`P11-08-cross-en-rpi`** — el bloque completo.
+
+### 11.8 Si algo no anda
+
+| Síntoma | Causa | Solución |
+|---|---|---|
+| `insmod: ERROR: ... Invalid module format` en la Raspberry | La `vermagic` no coincide (`kernel.release` distinto de `uname -r`) | Revisar 11.6 y recompilar |
+| `disagrees about version of symbol ...` en el `dmesg` de la Raspberry | `Module.symvers` no es el de la Raspberry | Volver a copiarlo (11.5), `modules_prepare` y recompilar |
+| `modpost: "_printk" [...] undefined!` al compilar | Falta `Module.symvers` en `~/rpi-linux` | Copiarlo de la Raspberry (11.5) |
+| `aarch64-linux-gnu-gcc: not found` | Falta el toolchain cruzado | `sudo apt install gcc-aarch64-linux-gnu` |
+| `scp: ... Connection refused` o se queda colgado | La IP cambió o la Raspberry está apagada | `hostname -I` en la Raspberry, o `ping -4 tp4-santi.local` en Windows |
+| `ssh: Could not resolve hostname tp4-santi.local` desde la VM | La VM en NAT no resuelve nombres `.local` | Usar la IP |
+
+---
+
 ## Anexo A — La advertencia de BTF
 
 Al compilar aparece:

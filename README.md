@@ -80,7 +80,7 @@ practico-4/
 | Parte 8 | Secure Boot y el parche de Microsoft | — | terminada |
 | Parte 9 | Desafío #2: módulos vs. programas, `/proc/kallsyms`, `/dev` | 3 | terminada |
 | Parte 10 | Desafío #1: checkinstall y seguridad del kernel | 6 | terminada |
-| Parte 11 | Extra: los módulos en una Raspberry Pi (aarch64) | 3 | terminada |
+| Parte 11 | Raspberry Pi (aarch64): compilación nativa y cruzada desde x86 | 8 | nativa terminada, cruzada pendiente |
 
 ## Cómo compilar y usar
 
