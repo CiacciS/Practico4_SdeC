@@ -80,7 +80,7 @@ practico-4/
 | Parte 8 | Secure Boot y el parche de Microsoft | — | terminada |
 | Parte 9 | Desafío #2: módulos vs. programas, `/proc/kallsyms`, `/dev` | 3 | terminada |
 | Parte 10 | Desafío #1: checkinstall y seguridad del kernel | 6 | terminada |
-| Parte 11 | Raspberry Pi (aarch64): compilación nativa y cruzada desde x86 | 8 | nativa terminada, cruzada pendiente |
+| Parte 11 | Raspberry Pi (aarch64): compilación nativa y cruzada desde x86 | 8 | terminada |
 
 ## Cómo compilar y usar
 
@@ -109,4 +109,17 @@ módulo se firma (detalle en la Parte 3 de la guía):
 cd part1/equipo
 make firmar                    # compila y firma
 sudo insmod equipo.ko
+```
+
+Para la **Raspberry Pi** se puede compilar en la propia placa (igual que arriba) o en la
+PC con un compilador cruzado x86 → ARM, contra el fuente del kernel de Raspberry Pi de la
+versión exacta (detalle en la Parte 11 de la guía):
+
+```bash
+sudo apt install gcc-aarch64-linux-gnu bc bison flex libssl-dev libelf-dev
+# ~/rpi-linux: fuente de raspberrypi/linux 6.18.50 + .config y Module.symvers de la Raspberry
+make -C ~/rpi-linux ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LOCALVERSION= modules_prepare
+cd part1/equipo
+make KDIR=~/rpi-linux ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LOCALVERSION=
+scp equipo.ko santiago@<ip-de-la-raspberry>:~/equipo-cross.ko
 ```

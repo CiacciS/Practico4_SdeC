@@ -1310,8 +1310,10 @@ cat include/config/kernel.release
   fuente no es un release oficial.
 
 `kernel.release` tiene que dar **exactamente** lo mismo que `uname -r` en la Raspberry:
-`6.18.50+rpt-rpi-v8`. Si da otra cosa (por ejemplo `6.18.50` a secas), se fija el sufijo
-y se repite:
+`6.18.50+rpt-rpi-v8`. Con el `.config` de Raspberry Pi OS da **`6.18.50-v8`**: el
+`.config` trae `CONFIG_LOCALVERSION="-v8"` (el sufijo de la Raspberry Pi Foundation), y
+el sufijo `+rpt-rpi-v8` se lo pone el empaquetado de Debian al compilar el paquete, sin
+guardarlo en el `.config`. Por eso se fija el sufijo a mano y se repite:
 
 ```bash
 ./scripts/config --set-str LOCALVERSION "+rpt-rpi-v8"

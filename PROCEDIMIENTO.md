@@ -18,7 +18,7 @@ comandos. Los requisitos del trabajo están en [`CONSIGNA.md`](CONSIGNA.md).
 | 8 | Secure Boot y el parche de Microsoft | — |
 | 9 | Desafío #2 | — |
 | 10 | Desafío #1 | `desafio1/hola/` |
-| 11 | Extra: el módulo en una Raspberry Pi | `part1/module/`, `part1/equipo/` |
+| 11 | La Raspberry Pi: compilación nativa y cruzada | `part1/module/`, `part1/equipo/` |
 
 ## Las máquinas
 
@@ -858,10 +858,13 @@ encontrados.
 
 ---
 
-# Parte 11: extra, el módulo en una Raspberry Pi
+# Parte 11: la Raspberry Pi, compilación nativa y cruzada
 
-Para ver qué cambia en otra arquitectura, Santiago compiló y cargó los dos módulos en
-una Raspberry Pi.
+Para ver qué cambia en otra arquitectura, Santiago llevó los módulos a una Raspberry Pi 4
+(1 GB, Raspberry Pi OS Lite 64-bit, accedida por SSH). Primero se compilaron **en la
+propia Raspberry** (11.1) y después **en la VM x86 con un compilador cruzado** (11.2).
+
+## 11.1 Compilación nativa
 
 ![Entorno RPi](capturas/P11-01-rpi-entorno.jpg)
 
@@ -900,6 +903,131 @@ Diferencias con las máquinas x86:
 - La dirección (`0xffffffd2325a2000`) también está en la mitad alta, pero la zona de
   módulos de ARM64 está en otro lugar que la de x86 (`0xffffffffc0...`).
 
+
+## 11.2 Compilación cruzada x86 → ARM
+
+Se compiló el módulo `equipo` en la VM (Ubuntu 26.04, x86-64) con el compilador cruzado
+`aarch64-linux-gnu-gcc` y se cargó en la Raspberry. Pasos en la Parte 11 de
+[`GUIA.md`](GUIA.md).
+
+### Versión del kernel de la Raspberry
+
+![Versión en la RPi](capturas/P11-04-rpi-version.jpg)
+
+```
+6.18.50+rpt-rpi-v8
+#1 SMP PREEMPT Debian 1:6.18.50-1+rpt1 (2026-09-11)
+aarch64
+/lib/modules/6.18.50+rpt-rpi-v8/build/.config
+/lib/modules/6.18.50+rpt-rpi-v8/build/Module.symvers
+```
+
+El kernel es el **6.18.50** de Raspberry Pi, compilado el 11/09/2026. Su fuente está en
+[raspberrypi/linux](https://github.com/raspberrypi/linux), rama `rpi-6.18.y`, que hoy ya
+va por la 6.18.60. Buscando en la historia de la rama el último commit con
+`SUBLEVEL = 50` en el `Makefile` se encontró
+`0c0042cbe1711760cf8e8c213db3c05fca16b81e`, del mismo 11/09/2026. Los headers de Ubuntu
+(`linux-headers-$(uname -r)` en la VM) no sirven: son de otro kernel y de otra
+arquitectura.
+
+### Toolchain cruzado y fuente del kernel
+
+![Toolchain y fuente](capturas/P11-05-toolchain-fuente.jpg)
+
+| Qué | Valor |
+|---|---|
+| Compilador cruzado | `aarch64-linux-gnu-gcc` 15.2.0 (Ubuntu), paquete `gcc-aarch64-linux-gnu` |
+| Fuente del kernel | `~/rpi-linux`, commit `0c0042cbe` (`VERSION = 6`, `PATCHLEVEL = 18`, `SUBLEVEL = 50`), bajado con `git fetch --depth 1` (270 MB) |
+| `.config` | Copiado de la Raspberry con `scp` (255 979 bytes) |
+| `Module.symvers` | Copiado de la Raspberry con `scp` (1 281 247 bytes) |
+
+El `.config` asegura que el árbol tenga las mismas opciones (SMP, PREEMPT, MODVERSIONS) y
+las mismas estructuras que el kernel que corre. El `Module.symvers` trae los CRC de cada
+símbolo exportado: con `CONFIG_MODVERSIONS`, el módulo guarda el CRC de `_printk`,
+`param_ops_charp`, etc., y el kernel lo compara al cargarlo.
+
+### Preparar el árbol: `modules_prepare`
+
+![modules_prepare](capturas/P11-06-modules-prepare.jpg)
+
+```
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LOCALVERSION= -j$(nproc) modules_prepare
+  UPD     include/config/kernel.release
+  UPD     include/generated/utsrelease.h
+6.18.50+rpt-rpi-v8
+```
+
+`modules_prepare` no compila el kernel: genera los headers que dependen de la
+configuración (`utsrelease.h`, `autoconf.h`) y las herramientas de kbuild (`modpost`,
+`fixdep`), compiladas para x86 porque corren en la VM.
+
+El primer intento dio `6.18.50-v8` en vez de `6.18.50+rpt-rpi-v8`. El `.config` de
+Raspberry Pi OS trae `CONFIG_LOCALVERSION="-v8"`, y el sufijo `+rpt-rpi-v8` lo agrega el
+empaquetado de Debian sin guardarlo en el `.config`. Con esa versión la `vermagic` no
+habría coincidido y la Raspberry habría rechazado el módulo (`Invalid module format`).
+Se corrigió con `./scripts/config --set-str LOCALVERSION "+rpt-rpi-v8"` y se repitió el
+paso.
+
+### Compilar en cruzado y probar en la VM
+
+![Compilación cruzada](capturas/P11-07-cross-compilacion.jpg)
+
+```
+$ make KDIR=~/rpi-linux ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LOCALVERSION=
+  CC [M]  equipo.o
+  MODPOST Module.symvers
+  LD [M]  equipo.ko
+$ file equipo.ko
+equipo.ko: ELF 64-bit LSB relocatable, ARM aarch64, version 1 (SYSV), ...
+$ modinfo equipo.ko | grep -E 'vermagic|parm'
+vermagic:       6.18.50+rpt-rpi-v8 SMP preempt mod_unload modversions aarch64
+parm:           grupo:Integrantes del grupo (charp)
+$ file ~/practico-4/part1/equipo/equipo.ko
+.../equipo.ko: ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), ...
+$ sudo insmod equipo.ko
+insmod: ERROR: could not insert module equipo.ko: Invalid module format
+```
+
+- Es el **mismo `Makefile`** de la Parte 4: solo cambia `KDIR` (el árbol del kernel de la
+  Raspberry en vez de los headers de Ubuntu) y se agregan `ARCH=arm64` y
+  `CROSS_COMPILE=aarch64-linux-gnu-`.
+- El mismo `equipo.c` dio dos binarios distintos: **ARM aarch64** (cruzado) y **x86-64**
+  (Parte 4).
+- La `vermagic` del módulo cruzado es **idéntica** a la del compilado en la Raspberry
+  (11.1).
+- La VM **no lo puede cargar**: su kernel es x86 y de otra versión.
+
+### Cargarlo en la Raspberry
+
+![Módulo cruzado en la RPi](capturas/P11-08-cross-en-rpi.jpg)
+
+```
+$ sudo insmod ~/equipo-cross.ko
+[ 1825.558661] equipo: modulo cargado en el equipo 'tp4-santi' (kernel 6.18.50+rpt-rpi-v8)
+[ 1825.558669] equipo: grupo: Borsotti Bosco - Ciacci - Leguizamon
+$ cat /sys/module/equipo/parameters/grupo
+Borsotti Bosco - Ciacci - Leguizamon
+$ sudo rmmod equipo
+[ 1825.637675] equipo: modulo descargado del equipo 'tp4-santi'
+```
+
+El módulo compilado en `santiago-VirtualBox` (x86) se cargó y corrió en `tp4-santi`
+(ARM). Que `insmod` lo aceptara confirma que coincidieron la arquitectura, la versión
+(`vermagic`) y los CRC de los símbolos (`Module.symvers`).
+
+| | Nativa (11.1) | Cruzada (11.2) |
+|---|---|---|
+| Dónde se compila | Raspberry (ARM) | VM (x86-64) |
+| Compilador | `gcc` 14.2.0 de Debian, nativo ARM | `aarch64-linux-gnu-gcc` 15.2.0 de Ubuntu |
+| Contra qué kernel | Headers del paquete de la Raspberry | Fuente de raspberrypi/linux 6.18.50 + `.config` y `Module.symvers` de la Raspberry |
+| `vermagic` | `6.18.50+rpt-rpi-v8 SMP preempt mod_unload modversions aarch64` | Idéntica |
+| Resultado en la Raspberry | Carga y descarga | Carga y descarga |
+
+La compilación cruzada es la forma normal de trabajar con sistemas embebidos: el target
+suele ser lento, con poca memoria (esta Raspberry tiene 1 GB de RAM y 486 MB libres en la
+microSD, donde no entra el fuente del kernel) o directamente sin compilador.
+
 ---
 
 # Conclusiones
@@ -926,3 +1054,9 @@ Diferencias con las máquinas x86:
   la puerta a rootkits de kernel.
 - **checkinstall** convierte un `make install` en un `.deb`: la calculadora del TP #2 se
   instaló en una segunda máquina sin código ni compilador, y dio el mismo resultado.
+- **Un módulo se compila para un kernel exacto.** El mismo `equipo.c` se compiló para
+  x86 y para ARM, en la Raspberry y en cruzado desde la VM. Para que el kernel lo acepte
+  tienen que coincidir la arquitectura, la versión (`vermagic`) y los CRC de los símbolos
+  (`Module.symvers`): por eso para compilar en cruzado hubo que buscar el fuente del
+  kernel 6.18.50 de Raspberry Pi y la configuración de la placa, y no alcanzaba con los
+  headers de Ubuntu.
