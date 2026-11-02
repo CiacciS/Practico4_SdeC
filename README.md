@@ -70,16 +70,17 @@ practico-4/
 
 | Parte | Tema | Capturas | Estado |
 |---|---|---|---|
-| Parte 1 | Entorno: paquetes, headers del kernel y Secure Boot | 1 | pendiente |
-| Parte 2 | Mi primer módulo: compilar, cargar, descargar y `modinfo` | 4 | pendiente |
-| Parte 3 | Firmar el módulo con una MOK propia | 4 | pendiente |
-| Parte 4 | Nuestro módulo, que imprime el nombre del equipo | 2 | pendiente |
-| Parte 5 | Módulos de cada máquina, drivers y `hw-probe` | 4 | pendiente |
-| Parte 6 | Syscalls con `strace` y file descriptors | 4 | pendiente |
-| Parte 7 | Segmentation fault | 1 | pendiente |
-| Parte 8 | Secure Boot y el parche de Microsoft | — | pendiente |
-| Parte 9 | Desafío #2: módulos vs. programas, `/proc/kallsyms`, `/dev` | 3 | pendiente |
-| Parte 10 | Desafío #1: checkinstall y seguridad del kernel | 4 | pendiente |
+| Parte 1 | Entorno: paquetes, headers del kernel y Secure Boot | 1 | terminada |
+| Parte 2 | Mi primer módulo: compilar, cargar, descargar y `modinfo` | 4 | terminada |
+| Parte 3 | Firmar el módulo con una MOK propia | 2 | terminada |
+| Parte 4 | Nuestro módulo, que imprime el nombre del equipo (en las 3 máquinas) | 4 | terminada |
+| Parte 5 | Módulos de cada máquina, drivers y `hw-probe` | 6 | terminada |
+| Parte 6 | Syscalls con `strace` y file descriptors | 4 | terminada |
+| Parte 7 | Segmentation fault | 1 | terminada |
+| Parte 8 | Secure Boot y el parche de Microsoft | — | terminada |
+| Parte 9 | Desafío #2: módulos vs. programas, `/proc/kallsyms`, `/dev` | 3 | terminada |
+| Parte 10 | Desafío #1: checkinstall y seguridad del kernel | 6 | terminada |
+| Parte 11 | Extra: los módulos en una Raspberry Pi (aarch64) | 3 | terminada |
 
 ## Cómo compilar y usar
 
