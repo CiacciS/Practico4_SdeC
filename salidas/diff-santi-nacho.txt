@@ -1,0 +1,40 @@
+3a4,8
+> async_memcpy
+> async_pq
+> async_raid6_recov
+> async_tx
+> async_xor
+6c11,14
+< cpuid
+---
+> btrfs
+> dm_log
+> dm_mirror
+> dm_region_hash
+12,13d19
+< hid
+< hid_generic
+22a29
+> ip_tables
+24a32,33
+> libblake2b
+> linear
+27a37,38
+> nfnetlink
+> nls_iso8859_1
+28a40
+> parport_pc
+35a48,52
+> raid0
+> raid1
+> raid10
+> raid456
+> raid6_pq
+53d69
+< usbhid
+55a72,73
+> vga16fb
+> vgastate
+58a77,78
+> x_tables
+> xor
