@@ -48,6 +48,7 @@ practico-4/
 ├── PROCEDIMIENTO.md       el registro de lo que fuimos haciendo, con capturas
 ├── capturas/              las imágenes referenciadas por PROCEDIMIENTO.md
 ├── salidas/               los .txt de módulos de cada integrante y sus diff
+├── informe/              recursos para el informe (escudo de la UNC para la carátula)
 ├── part1/
 │   ├── module/            el módulo de ejemplo de la cátedra (mimodulo.c)
 │   ├── equipo/            nuestro módulo: imprime el nombre del equipo (Parte 4)

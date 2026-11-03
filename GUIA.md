@@ -428,7 +428,7 @@ Antes de que arranque Ubuntu aparece una pantalla azul, el **MOK Manager**:
 3. Escribir la contraseña del paso anterior.
 4. **Reboot**.
 
-📸 **`P3-02-mok-manager`** — una foto con el celular de la pantalla azul.
+📸 (opcional) una foto con el celular de la pantalla azul.
 
 Ya en Ubuntu, verificar:
 
@@ -477,7 +477,7 @@ sudo rmmod mimodulo
 > **Ojo:** cada `make` genera un `.ko` nuevo **sin firma**. Hay que volver a firmar
 > después de cada compilación.
 
-📸 **`P3-03-firmado`** — `modinfo` con la firma, el `insmod` sin error y el `dmesg`.
+📸 **`P3-02-firmado`** — `modinfo` con la firma, el `insmod` sin error y el `dmesg`.
 
 ### 3.5 ¿Y si mi compañero carga mi módulo firmado? (pregunta 10)
 
@@ -495,7 +495,7 @@ nunca la `.priv`) con `sudo mokutil --import MOK.der` y registrarlo en su MOK Ma
 Eso es justamente lo que el sistema quiere evitar que pase sin que el dueño se entere:
 por eso pide reiniciar y estar físicamente frente a la máquina.
 
-📸 **`P3-04-companero`** — el error en la máquina del compañero.
+📸 (opcional) el error en la máquina del compañero.
 
 ---
 
@@ -566,7 +566,7 @@ equipo: modulo descargado del equipo 'nico-HP-Laptop-15-ef2xxx'
 ```
 
 📸 **`P4-01-compilacion`** — `make` y `modinfo equipo.ko` (con el `parm:`).
-📸 **`P4-02-carga-descarga`** — `insmod`, `dmesg` con el hostname, `rmmod` y su `dmesg`.
+📸 **`P4-02-carga-descarga-<nombre>`** — `insmod`, `dmesg` con el hostname, `rmmod` y su `dmesg` (una por integrante: `santi`, `nico`, `nacho`).
 
 > Si cada integrante lo corre en su PC, cada `dmesg` muestra un hostname distinto: es
 > una buena evidencia para el informe.
@@ -619,7 +619,7 @@ Qué buscar para explicar las diferencias:
   (pendrive), `snd_*` (audio).
 - **Versión de kernel distinta**: cambian nombres y la cantidad de disponibles.
 
-📸 **`P5-01-modulos`** — la salida de `modulos.sh` y un pedazo del `diff`.
+📸 **`P5-01a-modulos-<nombre>`** — la salida de `modulos.sh` (una por integrante).
 
 ### 5.2 Qué driver usa cada dispositivo
 
@@ -1151,8 +1151,8 @@ sudo lynis audit system
 - **LSM**: AppArmor (Ubuntu), SELinux (Red Hat), Yama, Landlock.
 - **IMA / EVM**: miden y verifican la integridad de los archivos que se ejecutan.
 
-📸 **`P10-04-seguridad`** — `/proc/cmdline`, lockdown, `tainted` y la salida de
-`rkhunter` o `lynis`.
+📸 **`P10-04a-seguridad`** — `/proc/cmdline`, lockdown y `tainted`.
+📸 **`P10-04b-rkhunter`** — el resumen de `rkhunter`.
 
 ---
 
